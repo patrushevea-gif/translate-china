@@ -14,10 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
-import urllib.error
-import urllib.request
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -67,57 +64,6 @@ class StubProvider:
             return f"[stub-back:{model}] {text[:120]}"
         text = prompt.split("TEXT:\n", 1)[-1]
         return f"[stub:{model}] {text[:160]}"
-
-
-class OpenAICompatibleProvider:
-    """OpenAI-compatible Chat Completions provider."""
-
-    def __init__(self, *, base_url: str, api_key: str):
-        self.base_url = base_url.rstrip("/")
-        self.api_key = api_key
-
-    def translate(self, prompt: str, *, model: str) -> str:
-        url = f"{self.base_url}/chat/completions"
-        payload = {
-            "model": model,
-            "temperature": 0.1,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a high-precision Chinese↔Russian translator. "
-                        "Return only translation output requested by the prompt."
-                    ),
-                },
-                {"role": "user", "content": prompt},
-            ],
-        }
-        body = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            url=url,
-            data=body,
-            method="POST",
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=90) as resp:
-            raw = resp.read().decode("utf-8")
-        parsed = json.loads(raw)
-        return parsed["choices"][0]["message"]["content"].strip()
-
-
-class FixedModelProvider:
-    """Forces a single model for all translation layers."""
-
-    def __init__(self, inner: LLMProvider, model: str):
-        self.inner = inner
-        self.model = model
-
-    def translate(self, prompt: str, *, model: str) -> str:
-        _ = model
-        return self.inner.translate(prompt, model=self.model)
 
 
 class PrecisionTranslator:
@@ -336,45 +282,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--glossary", help="Path to JSON glossary {source_term: target_term}")
     parser.add_argument("--json", action="store_true")
     parser.add_argument(
-        "--provider",
-        choices=["stub", "openai-compatible"],
-        default="stub",
-        help="Translation provider backend.",
-    )
-    parser.add_argument(
-        "--base-url",
-        default="https://api.openai.com/v1",
-        help="Base URL for openai-compatible provider.",
-    )
-    parser.add_argument(
-        "--api-key-env",
-        default="OPENAI_API_KEY",
-        help="Environment variable that stores API key for openai-compatible provider.",
-    )
-    parser.add_argument(
-        "--model",
-        default="gpt-4.1",
-        help="Model name for openai-compatible provider translation calls.",
-    )
-    parser.add_argument(
         "--simulate-baselines",
         action="store_true",
         help="Produce comparative scoring report against simulated Google/Yandex baselines.",
     )
     return parser
-
-
-def build_provider(args: argparse.Namespace) -> LLMProvider:
-    if args.provider == "stub":
-        return StubProvider()
-    api_key = os.getenv(args.api_key_env, "").strip()
-    if not api_key:
-        raise SystemExit(
-            f"Environment variable {args.api_key_env} is empty. "
-            "Set it or switch --provider stub."
-        )
-    provider = OpenAICompatibleProvider(base_url=args.base_url, api_key=api_key)
-    return FixedModelProvider(provider, model=args.model)
 
 
 def main() -> None:
@@ -389,8 +301,7 @@ def main() -> None:
         domain=Domain(args.domain),
     )
 
-    provider = build_provider(args)
-    translator = PrecisionTranslator(provider=provider, glossary=load_glossary(args.glossary))
+    translator = PrecisionTranslator(provider=StubProvider(), glossary=load_glossary(args.glossary))
     result = translator.run(req)
 
     payload: Dict[str, object] = {
