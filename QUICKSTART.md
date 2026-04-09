@@ -38,23 +38,6 @@ python3 precision_translator.py \
   --json
 ```
 
-## 3.1) Запуск через AgentPlatform (по вашему curl)
-1. Положите ключ **в переменную окружения**, а не в чат:
-```bash
-export AGENTPLATFORM_KEY='ваш_секретный_ключ'
-```
-2. Запуск:
-```bash
-python3 precision_translator.py \
-  --provider agentplatform \
-  --source-lang zh \
-  --target-lang ru \
-  --domain technical \
-  --text '设备温度必须保持在25°C，压力不超过2.5MPa。' \
-  --json
-```
-3. Опционально (чтобы не писать `export` каждый раз): добавьте строку `export AGENTPLATFORM_KEY='...'` в `~/.bashrc`, затем `source ~/.bashrc`.
-
 ## 4) Если хотите увидеть справку по всем флагам
 ```bash
 python3 precision_translator.py --help
@@ -62,5 +45,4 @@ python3 precision_translator.py --help
 
 ## 5) Частые ошибки
 - `Environment variable OPENAI_API_KEY is empty` → задайте ключ или используйте `--provider stub`.
-- `Environment variable AGENTPLATFORM_KEY is empty` → задайте ключ: `export AGENTPLATFORM_KEY='...'`.
 - Одинаковые `--source-lang` и `--target-lang` → должны отличаться (`zh` и `ru`).
